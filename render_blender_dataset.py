@@ -12,32 +12,32 @@ import numpy as np
 from mathutils import *
 from math import *
 
-parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
-parser.add_argument('--views', type=int, default=6,
-                    help='number of views to be rendered at each elevation angle (+/- elevation)')
-parser.add_argument('--elevation', type=float, default=30,
-                    help='elevation angle in degrees from which to render views')
+parser = argparse.ArgumentParser(description='Renders given obj file with random orientation, centered perspective image.')
+parser.add_argument('--views', type=int, default=10,
+                    help='number of views to be rendered')
+parser.add_argument('--persp_dim', type=int, default=400,
+                    help='perspective focal length in pixels')
+parser.add_argument('--flength', type=float, default=350,
+                    help='dimension of square perspective image')
 parser.add_argument('obj', type=str,
                     help='Path to the obj file to be rendered.')
-parser.add_argument('--output_folder', type=str, default='/tmp',
+parser.add_argument('--output_folder', type=str, default='/tmp/render_blender',
                     help='The path the output will be dumped to.')
-parser.add_argument('--auto_scale', type=bool, default=True,
-                    help='Auto scale model to fit in unit cube.')
-parser.add_argument('--scale', type=float, default=1,
-                    help='Scaling factor applied to model. Depends on size of mesh.')
 parser.add_argument('--remove_doubles', type=bool, default=True,
                     help='Remove double vertices to improve mesh quality.')
 parser.add_argument('--edge_split', type=bool, default=True,
                     help='Adds edge split filter.')
-parser.add_argument('--depth_scale', type=float, default=10,
-                    help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result. Ignored if format is OPEN_EXR.')
 parser.add_argument('--color_depth', type=str, default='8',
                     help='Number of bit per channel used for output. Either 8 or 16.')
+parser.add_argument('--depth_scale', type=float, default=10,
+                    help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result. Ignored if format is OPEN_EXR.')
 parser.add_argument('--format', type=str, default='PNG',
                     help='Format of files generated. Either PNG or OPEN_EXR')
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 args = parser.parse_args(argv)
+
+object_offset = [0, .076731, 0]
 
 # Set up rendering of depth map.
 bpy.context.scene.use_nodes = True
@@ -116,15 +116,6 @@ for object in bpy.context.scene.objects:
     if object.name in ['Camera']:
         continue
     bpy.context.scene.objects.active = object
-    if args.auto_scale:
-        maxDim = max(bpy.context.object.dimensions)
-        model_scale = 1 / maxDim
-        bpy.ops.transform.resize(value=(model_scale,model_scale,model_scale))
-        bpy.ops.object.transform_apply(scale=True)
-    elif args.scale != 1:
-        bpy.ops.transform.resize(value=(args.scale,args.scale,args.scale))
-        bpy.ops.object.transform_apply(scale=True)
-        model_scale = args.scale
     if args.remove_doubles:
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.remove_doubles()
@@ -133,6 +124,7 @@ for object in bpy.context.scene.objects:
         bpy.ops.object.modifier_add(type='EDGE_SPLIT')
         bpy.context.object.modifiers["EdgeSplit"].split_angle = 1.32645
         bpy.ops.object.modifier_apply(apply_as='DATA', modifier="EdgeSplit")
+    object.location = object_offset
 
 
 ## Set up environment lighting
@@ -143,10 +135,10 @@ o_lamp.location = (0,0,0)
 # Make light just directional, disable shadows.
 bpy.ops.object.lamp_add(type='SUN')
 lamp = bpy.data.lamps['Sun']
-lamp.shadow_method = 'NOSHADOW'
+# lamp.shadow_method = 'NOSHADOW'
 lamp.energy = 0.75
 # Possibly disable specular shading:
-lamp.use_specular = False
+# lamp.use_specular = False
 # Make light track origin
 lamp_obj = bpy.data.objects['Sun']
 lamp_obj.location = (3,3,2)
@@ -158,9 +150,9 @@ lamp_constraint.target = o_lamp
 # Add another light source so stuff facing away from light is not completely dark
 bpy.ops.object.lamp_add(type='SUN')
 lamp2 = bpy.data.lamps['Sun.001']
-lamp2.shadow_method = 'NOSHADOW'
+# lamp2.shadow_method = 'NOSHADOW'
 lamp2.energy = 0.75
-lamp2.use_specular = False
+# lamp2.use_specular = False
 # Make light point at object
 lamp2_obj = bpy.data.objects['Sun.001']
 lamp2_obj.location = (-3,-3,2)
@@ -181,14 +173,14 @@ def parent_obj_to_camera(b_camera):
     return b_empty
 
 scene = bpy.context.scene
-scene.render.resolution_x = 224
-scene.render.resolution_y = 224
+scene.render.resolution_x = args.persp_dim
+scene.render.resolution_y = args.persp_dim
 scene.render.resolution_percentage = 100
 scene.render.alpha_mode = 'TRANSPARENT'
 cam = bpy.data.cameras['Camera']
 camobj = bpy.data.objects['Camera']
-cam.angle = 1.0472          # TODO: rather than scale object to unit cube, adjust render distance
-camobj.location = (2, 0, 0) # so object appearance is consistent with real camera
+cam.angle = 2*np.arctan(args.persp_dim/(2*args.flength))         # TODO: rather than scale object to unit cube, adjust render distance
+camobj.location = (1, 0, 0) # so object appearance is consistent with real camera
 cam_constraint = camobj.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
@@ -198,48 +190,88 @@ cam_constraint.target = b_empty
 model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
 if not os.path.exists(os.path.join(args.output_folder, model_identifier)):
     os.makedirs(os.path.join(args.output_folder, model_identifier))
-fp = os.path.join(args.output_folder, model_identifier, model_identifier)
+# fp = os.path.join(args.output_folder, model_identifier, model_identifier)
+fp = os.path.join(args.output_folder, model_identifier)
+# scene.render.use_file_extension = False
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 
-stepsize = 360.0 / args.views
-b_empty.rotation_mode = 'XYZ'
+b_empty.rotation_mode = 'QUATERNION'
 
-for output_node in [depth_file_output, normal_file_output, albedo_file_output]:
-    output_node.base_path = ''
+# for output_node in [depth_file_output, normal_file_output, albedo_file_output]:
+#     output_node.base_path = ''
+# for output_node in [albedo_file_output]:
+#     output_node.base_path = ''
+
+obj_adj = Matrix().to_4x4()
+obj_adj[0][0] = 1.
+obj_adj[1][1] = 1.
+obj_adj[2][2] = 1. 
+obj_adj[3][3] = 1.
+obj_adj[0][3] = object_offset[0]
+obj_adj[1][3] = object_offset[1]
+obj_adj[2][3] = object_offset[2]
+
+rot = Matrix().to_4x4()
+rot[0][0] = 1.
+rot[1][1] = -1.
+rot[2][2] = -1. 
+rot[3][3] = 1.
+
+## Get width, height and the camera
+scn = bpy.data.scenes['Scene']
+w = scn.render.resolution_x*scn.render.resolution_percentage/100.
+h = scn.render.resolution_y*scn.render.resolution_percentage/100.
+
+## Get camera intrinsic
+K = Matrix().to_3x3()
+K[0][0] = w/2 / tan(cam.angle/2)
+ratio = w/h
+K[1][1] = h/2. / tan(cam.angle/2) * ratio
+K[0][2] = w / 2.
+K[1][2] = h / 2.
+K[2][2] = 1.
 
 for i in range(0, args.views):
-    print("Rotation {}, {}".format((stepsize * i), stepsize * i))
+    print("image {}".format(i))
 
-    ## Get width, height and the camera
-    scn = bpy.data.scenes['Scene']
-    w = scn.render.resolution_x*scn.render.resolution_percentage/100.
-    h = scn.render.resolution_y*scn.render.resolution_percentage/100.
-
-    ## Get camera intrinsic
-    K = Matrix().to_3x3()
-    K[0][0] = w/2 / tan(cam.angle/2)
-    ratio = w/h
-    K[1][1] = h/2. / tan(cam.angle/2) * ratio
-    K[0][2] = w / 2.
-    K[1][2] = h / 2.
-    K[2][2] = 1.
+    # randomize lamps
+    rnd_loc = np.random.uniform(low=0, high=3.0, size=3)
+    lamp_obj.location = tuple(rnd_loc)
+    rnd_loc = np.random.uniform(low=0, high=3.0, size=3)
+    lamp2_obj.location = tuple(rnd_loc)
 
     ## Render for positive elevation
-    b_empty.rotation_euler[1] = radians(args.elevation)
+    # b_empty.rotation_euler[1] = radians(args.elevation)
+    d = np.random.uniform(low=0.2, high=2.0)
+    camobj.location = (d, 0, 0)
+
+    q = np.random.uniform(low=-1.0, high=1.0, size=4)
+    q = q/np.linalg.norm(q)
+
+    b_empty.rotation_quaternion = q
+
+    scene.update()
 
     # Get camera extrinsic
-    RT = camobj.matrix_world.inverted()
+    # RT = camobj.matrix_world.inverted()
+    # rotate 180 degrees about x axis to correct blender coordinates
+    
+    # import pdb; pdb.set_trace()
+
+    RT = rot*camobj.matrix_world.inverted()*obj_adj
+    pos = RT.translation
+    quat = RT.to_quaternion()
 
     # Get camera pose in world
-    RT_inv = camobj.matrix_world
-    pos = RT_inv.translation
-    quat = RT_inv.to_quaternion()
+    # RT_inv = camobj.matrix_world
+    # pos = RT_inv.translation
+    # quat = RT_inv.to_quaternion()
 
     # Set filepaths for saving
-    scene.render.filepath = fp + '_r_{0:02d}_{1:03d}'.format(int(args.elevation),int(i * stepsize))
-    depth_file_output.file_slots[0].path = scene.render.filepath + "_#_depth.png"
-    normal_file_output.file_slots[0].path = scene.render.filepath + "_#_normal.png"
-    albedo_file_output.file_slots[0].path = scene.render.filepath + "_#_albedo.png"
+    scene.render.filepath = fp + '/{}'.format(i)
+    # depth_file_output.file_slots[0].path = scene.render.filepath + "_#_depth.png"
+    # normal_file_output.file_slots[0].path = scene.render.filepath + "_#_normal.png"
+    # albedo_file_output.file_slots[0].path = scene.render.filepath + "_#_.png"
 
     # Write camera matrix
     mat = {}
@@ -247,40 +279,8 @@ for i in range(0, args.views):
     mat['K'] = np.array(K)
     mat['pos'] = np.array(pos)
     mat['quat'] = np.array(quat)
-    camera_file_path = scene.render.filepath + "_camera.mat"
+    camera_file_path = scene.render.filepath + ".mat"
     scipy.io.savemat(camera_file_path, mat)
 
     # Render frame
     bpy.ops.render.render(write_still=True)  # render still
-
-    ## Render for negative elevation
-    b_empty.rotation_euler[1] = radians(-args.elevation)
-
-    # Get camera extrinsic
-    RT = camobj.matrix_world.inverted()
-
-    # Get camera pose in world
-    mat = camobj.matrix_world
-    pos = mat.translation
-    quat = mat.to_quaternion()
-
-    # Set filepaths for saving
-    scene.render.filepath = fp + '_r_{0:02d}_{1:03d}'.format(int(-args.elevation),int(i * stepsize))
-    depth_file_output.file_slots[0].path = scene.render.filepath + "_#_depth.png"
-    normal_file_output.file_slots[0].path = scene.render.filepath + "_#_normal.png"
-    albedo_file_output.file_slots[0].path = scene.render.filepath + "_#_albedo.png"
-
-    # Save camera matrix
-    mat = {}
-    mat['extrinsic'] = np.array(RT)
-    mat['K'] = np.array(K)
-    mat['pos'] = np.array(pos)
-    mat['quat'] = np.array(quat)
-    camera_file_path = scene.render.filepath + "_camera.mat"
-    scipy.io.savemat(camera_file_path, mat)
-
-    # Render frame
-    bpy.ops.render.render(write_still=True)  # render still
-
-    ## Increment azimuth angle
-    b_empty.rotation_euler[2] += radians(stepsize)
