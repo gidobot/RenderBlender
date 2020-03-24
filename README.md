@@ -10,9 +10,9 @@ The repo is organized into folders for the different rendering applications. The
 
 ### scripts
 
-*blender_render.py* - renders evenly distributed viewpoints of an object by rotating a camera around the object at defined elevation angles. Also generates depth maps. *Compatible with Blender 2.79*
+`blender_render.py` - renders evenly distributed viewpoints of an object by rotating a camera around the object at defined elevation angles. Also generates depth maps. *Compatible with Blender 2.79*
 
-*blender_render_dataset.py* - renders random orientations of an object centered in a perspective image. *Compatible with Blender 2.79*
+`blender_render_dataset.py` - renders random orientations of an object centered in a perspective image. *Compatible with Blender 2.79*
 
 ### stereo
 
@@ -22,7 +22,7 @@ This is an experimental project for rendering stereo datasets of randomly genera
 
 This is a project for rendering fisheye images of objects in a virtual underwater environment to supplement the [UWHandles](https://github.com/gidobot/UWHandles/blob/master/README.md) dataset. The script is intended for rendering the *.glb* models provided with the dataset. Documentation for the project will be extended in the future.
 
-*render_blender_underwater_fisheye.py* - main script. *Compatable with Blender 2.80+*
+`render_blender_underwater_fisheye.py` - main script. *Compatable with Blender 2.80+*
 
 Example invocation  
 `~/blender-2.82/blender --background underwater_fisheye_env.blend --python render_blender_underwater_fisheye.py -- --output_folder /tmp/rendered textured_real.glb`
