@@ -45,10 +45,8 @@ tree = bpy.context.scene.node_tree
 links = tree.links
 
 # Add passes for additionally dumping albedo and normals.
-bpy.context.scene.render.layers["RenderLayer"].use_pass_normal = True # for Blender version < 2.8
-bpy.context.scene.render.layers["RenderLayer"].use_pass_color = True  # for Blender version < 2.8
-# bpy.context.view_layer.use_pass_normal = True # for Blender version >= 2.8
-# bpy.context.view_layer.use_pass_diffuse_color = True  # for Blender version >= 2.8
+bpy.context.scene.render.layers["RenderLayer"].use_pass_normal = True
+bpy.context.scene.render.layers["RenderLayer"].use_pass_color = True
 bpy.context.scene.render.image_settings.file_format = args.format
 bpy.context.scene.render.image_settings.color_depth = args.color_depth
 
@@ -100,7 +98,7 @@ links.new(bias_normal.outputs[0], normal_file_output.inputs[0])
 
 albedo_file_output = tree.nodes.new(type="CompositorNodeOutputFile")
 albedo_file_output.label = 'Albedo Output'
-links.new(render_layers.outputs['Color'], albedo_file_output.inputs[0])
+links.new(render_layers.outputs['DiffCol'], albedo_file_output.inputs[0])
 
 # Delete default cube
 if bpy.data.objects.get("Cube") is not None:
@@ -187,8 +185,8 @@ scene.render.resolution_percentage = 100
 scene.render.alpha_mode = 'TRANSPARENT'
 cam = bpy.data.cameras['Camera']
 camobj = bpy.data.objects['Camera']
-cam.angle = 1.0472          # TODO: rather than scale object to unit cube, adjust render distance
-camobj.location = (2, 0, 0) # so object appearance is consistent with real camera
+cam.angle = 0.927295218
+camobj.location = (2, 0, 0)
 cam_constraint = camobj.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
@@ -202,7 +200,7 @@ fp = os.path.join(args.output_folder, model_identifier, model_identifier)
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 
 stepsize = 360.0 / args.views
-b_empty.rotation_mode = 'XYZ'
+rotation_mode = 'XYZ'
 
 for output_node in [depth_file_output, normal_file_output, albedo_file_output]:
     output_node.base_path = ''
