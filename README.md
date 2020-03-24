@@ -40,7 +40,7 @@ To render a batch of data with different models, you can e. g. use the unix tool
 To speed up the process, you can also use xargs to have multiple blender instances run in parallel using the *-P* argument  
 `find . -name *.obj -print0 | xargs -0 -n1 -P3 -I {} blender --background --python render_blender.py -- --output_folder /tmp {}`
 
-## Example command for rendering YCB-Video dataset models using parallel instances
+### Example command for rendering YCB-Video dataset models using parallel instances
 
 This invocation was used to generate the rendered model input images for [SilhoNet](https://github.com/gidobot/SilhoNet)
 `find /../YCB_Video_Dataset/models -name "*.obj" -print0 | xargs -0 -n1 -P3 -I {} blender --background --python render_blender.py -- --output_folder /../YCB_Video_Dataset/models/rendered {}`
