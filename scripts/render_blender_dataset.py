@@ -1,9 +1,4 @@
-# A simple script that uses blender to render views of a single object by rotation the camera around it.
-# Also produces depth map at the same time.
-#
-# Example:
-# blender --background --python mytest.py -- --views 10 /path/to/my.obj
-#
+# A script that uses blender to render random orientations of an object centered in a perspective image.
 
 import argparse, sys, os
 import scipy.io
