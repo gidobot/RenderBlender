@@ -43,4 +43,6 @@ To speed up the process, you can also use xargs to have multiple blender instanc
 ### Example command for rendering YCB-Video dataset models using parallel instances
 
 This invocation was used to generate the rendered model input images for [SilhoNet](https://github.com/gidobot/SilhoNet)  
-`find /../YCB_Video_Dataset/models -name "*.obj" -print0 | xargs -0 -n1 -P3 -I {} blender --background --python render_blender.py -- --output_folder /../YCB_Video_Dataset/models/rendered {}`
+`find $YCB_DIR/models -name "*.obj" -print0 | xargs -0 -n1 -P3 -I {} blender --background --python render_blender.py -- --output_folder $YCB_DIR/models/rendered {}`  
+where $YCB_DIR is the root directory of the YCB-Video dataset
+
