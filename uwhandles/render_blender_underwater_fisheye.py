@@ -7,6 +7,7 @@
 import argparse, sys, os
 import scipy.io
 import bpy
+import glob
 import numpy as np
 from os import path as osp
 from mathutils import *
@@ -211,80 +212,92 @@ render_object.parent = object_parent
 
 seafloor_tracker = bpy.data.objects['SeafloorTracker']
 
-for i in range(0, args.views):
+# find start index for continuing data generation
+index_list = [int(os.path.splitext(os.path.split(x)[1])[0]) for x in glob.glob(fp+'/*.png')]
+if index_list == []:
+    min_idx = 0
+else:
+    min_idx = max(index_list) + 1
+
+for i in range(min_idx, args.views):
 # if 1:
-    print("Image {}".format(i))
+    try:
+        print("Image {}".format(i))
 
-    # Random light configuration
-    for l in range(num_lights):
-        light_objs[l].location = np.concatenate([np.random.uniform(low=-2, high=2, size=2), np.random.uniform(low=-2, high=0, size=1)])
-        lights[l].energy = np.random.uniform(low=100., high=1600.)
+        # Random light configuration
+        for l in range(num_lights):
+            light_objs[l].location = np.concatenate([np.random.uniform(low=-2, high=2, size=2), np.random.uniform(low=-2, high=0, size=1)])
+            lights[l].energy = np.random.uniform(low=100., high=1600.)
 
-    # Random object position
-    r = np.random.uniform(low=min_dist, high=max_dist)
-    px = np.random.uniform(low=-sensor_pix_x/2, high=sensor_pix_x/2)
-    py = np.random.uniform(low=-sensor_pix_y/2, high=sensor_pix_y/2)
-    theta, phi = fish2polar(px, py, f)
-    x, y, z = polar2cartesian(theta, phi, r)
-    z = max(0.1, z)
+        # Random object position
+        r = np.random.uniform(low=min_dist, high=max_dist)
+        px = np.random.uniform(low=-sensor_pix_x/2, high=sensor_pix_x/2)
+        py = np.random.uniform(low=-sensor_pix_y/2, high=sensor_pix_y/2)
+        theta, phi = fish2polar(px, py, f)
+        x, y, z = polar2cartesian(theta, phi, r)
+        z = max(0.1, z)
 
-    # q = np.random.uniform(low=-1., high=1., size=4)
-    # q = q / np.linalg.norm(q)
+        # q = np.random.uniform(low=-1., high=1., size=4)
+        # q = q / np.linalg.norm(q)
 
-    # render_object.rotation_quaternion = q
-    # render_object.location = (x, y, z)
+        # render_object.rotation_quaternion = q
+        # render_object.location = (x, y, z)
 
-    # use parent and tracker constraints to define limited object orientation on hemisphere
-    object_parent.location = (x, y, z)
-    phi = np.random.uniform(low=0., high=2.*np.pi)
-    theta = np.random.uniform(low=np.pi/2., high=np.pi)
-    object_tracker.location = (np.sin(theta)*np.cos(phi)-x, np.sin(theta)*np.sin(phi)-y, cos(theta)-z)
-    render_object.rotation_euler[1] = np.random.uniform(low=0., high=2.*np.pi)
+        # use parent and tracker constraints to define limited object orientation on hemisphere
+        object_parent.location = (x, y, z)
+        phi = np.random.uniform(low=0., high=2.*np.pi)
+        theta = np.random.uniform(low=np.pi/2., high=np.pi)
+        object_tracker.location = (np.sin(theta)*np.cos(phi)-x, np.sin(theta)*np.sin(phi)-y, cos(theta)-z)
+        render_object.rotation_euler[1] = np.random.uniform(low=0., high=2.*np.pi)
 
-    bpy.context.view_layer.update()
+        bpy.context.view_layer.update()
 
-    # Get object pose in proper camera system
-    RC = camobj.matrix_world.inverted()
-    RO = render_object.matrix_world
-    RT = RC@RO
-    RT = R_adj@RT
-    pos = RT.translation
-    quat = RT.to_quaternion()
+        # Get object pose in proper camera system
+        RC = camobj.matrix_world.inverted()
+        RO = render_object.matrix_world
+        RT = RC@RO
+        RT = R_adj@RT
+        pos = RT.translation
+        quat = RT.to_quaternion()
 
-    # Set filepaths for saving
-    scene.render.filepath = fp + '/{}'.format(i)
+        # Set filepaths for saving
+        scene.render.filepath = fp + '/{}'.format(i)
 
-    # Write camera matrix
-    mat = {}
-    mat['extrinsic'] = np.array(RT)
-    mat['K'] = np.array(K)
-    mat['pos'] = np.array(pos)
-    mat['quat'] = np.array(quat)
-    camera_file_path = scene.render.filepath + ".mat"
-    scipy.io.savemat(camera_file_path, mat)
+        # Write camera matrix
+        mat = {}
+        mat['extrinsic'] = np.array(RT)
+        mat['K'] = np.array(K)
+        mat['pos'] = np.array(pos)
+        mat['quat'] = np.array(quat)
+        camera_file_path = scene.render.filepath + ".mat"
+        scipy.io.savemat(camera_file_path, mat)
 
-    # Randomly sample seafloor background and planar tilt
-    bpy.data.images['seafloor'].filepath = osp.join(COCO_PATH,random.choice(COCO_FILE_LIST))
-    [w,h] = bpy.data.images['seafloor'].size[:]
-    aspect = w/h
-    min_dim = 8.
-    if aspect >=1:
-        plane_w = aspect*min_dim
-        plane_h = min_dim
-    else:
-        plane_w = min_dim
-        plane_h = min_dim/aspect
+        # Randomly sample seafloor background and planar tilt
+        bpy.data.images['seafloor'].filepath = osp.join(COCO_PATH,random.choice(COCO_FILE_LIST))
+        [w,h] = bpy.data.images['seafloor'].size[:]
+        aspect = w/h
+        min_dim = 8.
+        if aspect >=1:
+            plane_w = aspect*min_dim
+            plane_h = min_dim
+        else:
+            plane_w = min_dim
+            plane_h = min_dim/aspect
 
-    bpy.data.objects['Seafloor'].dimensions = [plane_w, plane_h, 0.]
-    seafloor_tracker.location = np.random.uniform(low=-1., high=1., size=3)
+        bpy.data.objects['Seafloor'].dimensions = [plane_w, plane_h, 0.]
+        seafloor_tracker.location = np.random.uniform(low=-1., high=1., size=3)
 
-    # Randomize water properties
-    bpy.data.materials['Water'].node_tree.nodes["Value"].outputs[0].default_value = np.random.uniform(low=0.2, high=0.4)
-    bpy.data.materials['Water'].node_tree.nodes["Volume Scatter"].inputs[2].default_value = np.random.uniform(low=0.4, high=0.9)
+        # Randomize water properties
+        bpy.data.materials['Water'].node_tree.nodes["Value"].outputs[0].default_value = np.random.uniform(low=0.2, high=0.4)
+        bpy.data.materials['Water'].node_tree.nodes["Volume Scatter"].inputs[2].default_value = np.random.uniform(low=0.4, high=0.9)
 
-    # Render frame
-    # blur_size = np.random.randint(low=2, high=8)
-    blur_size = 0
-    tree.nodes['Blur'].size_x = blur_size
-    tree.nodes['Blur'].size_y = blur_size
-    bpy.ops.render.render(write_still=True)  # render still
+        # Render frame
+        # blur_size = np.random.randint(low=2, high=8)
+        blur_size = 0
+        tree.nodes['Blur'].size_x = blur_size
+        tree.nodes['Blur'].size_y = blur_size
+        bpy.ops.render.render(write_still=True)  # render still
+    except Exception as e:
+        print(str(e))
+        i -= 1
+        continue
