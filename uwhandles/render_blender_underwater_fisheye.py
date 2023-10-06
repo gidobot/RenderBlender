@@ -41,7 +41,7 @@ def polar2cartesian(theta, phi, r=1.):
     return x, y, z
 
 parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
-parser.add_argument('--views', type=int, default=50000,
+parser.add_argument('--views', type=int, default=5,
                     help='number of views to be rendered at each elevation angle (+/- elevation)')
 parser.add_argument('obj', type=str,
                     help='Path to the obj file to be rendered.')
@@ -105,7 +105,8 @@ for object in bpy.context.view_layer.objects:
     if args.edge_split:
         bpy.ops.object.modifier_add(type='EDGE_SPLIT')
         bpy.context.object.modifiers["EdgeSplit"].split_angle = 1.32645
-        bpy.ops.object.modifier_apply(apply_as='DATA', modifier="EdgeSplit")
+        # bpy.ops.object.modifier_apply(apply_as='DATA', modifier="EdgeSplit")
+        bpy.ops.object.modifier_apply(modifier="EdgeSplit")
     render_object = object
     object.data.use_auto_smooth = False
     bpy.ops.object.shade_smooth()
@@ -131,10 +132,10 @@ for i in range(num_lights):
     light_constraint.target = render_object
 
 # Camera parameters match real camera except no distortion
-render_resolution = 2448.
+render_resolution = 2448
 scene.render.resolution_x = render_resolution
 scene.render.resolution_y = render_resolution
-scene.render.resolution_percentage = 100.
+scene.render.resolution_percentage = 100
 scene.render.film_transparent = True
 cam = bpy.data.cameras['Camera']
 camobj = bpy.data.objects['Camera']
